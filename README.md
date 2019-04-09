@@ -2,7 +2,7 @@
 The `AMQPListeners` plugin for [Servoy](http://servoy.com) allows a Servoy ApplicationServer instance to listen to AMQP Queues and when receiving a message will invoke the configured method in a Servoy Solution, utilizing a pool of Headless Clients
 
 # Use case
-This plugin was developed to be able to process queued messages in Servoy, without having to rely on a batchprocessor of other client running 
+This plugin was developed to be able to process queued messages in Servoy, without having to rely on a batchprocessor or another type of client running 
 
 # Requirements
 - Servoy: tested with Servoy 8.x
