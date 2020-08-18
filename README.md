@@ -166,14 +166,14 @@ TODO
 ### channel
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| connection | int |  |  |
+| connection | int | default connection | connection reference |
 | qos | int |  |  |
 | qos.global | int |  |  |
 
 ### exchange
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| channel | int |  |  |
+| channel | int | default channel | channel reference |
 | name | string |  |  |
 | durable | boolean | false |  |
 | autodelete | boolean | false |  |
@@ -182,7 +182,7 @@ TODO
 ### queue
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| channel | int |  |  |
+| channel | int | default channel | channel reference |
 | name | string |  |  |
 | durable | boolean | false |  |
 | autodelete | boolean | false |  |
@@ -192,8 +192,8 @@ TODO
 ### binding
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| queue | int |  |  |
-| exchange | int |  |  |
+| queue | int | default queue | queue reference |
+| exchange | int | default exchange | exchange reference |
 | routingkey | string |  | required |
 NOTES 
 * Queue and Exchange must be on the same Channel 
@@ -201,8 +201,8 @@ NOTES
 ### consumer
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| queue | int |  |  |
-| handler | string |  |  |
+| queue | int | default queue | queue reference |
+| handler | string |  | required |
 | consumertag | string |  | if not specified, the AMQP server will generate a random value |
 | autoack | boolean | true |  |
 | ack.multiple | boolean | false |  |
