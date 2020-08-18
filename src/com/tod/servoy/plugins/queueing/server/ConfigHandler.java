@@ -120,7 +120,7 @@ public class ConfigHandler {
 	private final static String AUTO_DELETE = "autodelete";
 	
 	private final static String CONSUMER_TAG = "consumertag";
-	final static String AUTO_ACK = "autoAck";
+	final static String AUTO_ACK = "autoack";
 	final static String ACK_MULTIPLE = "ack.multiple";
 	final static String NACK_MULTIPLE = "nack.multiple";
 	final static String NACK_REQUEUE = "nack.requeue";

@@ -43,10 +43,10 @@ public class ScriptMethodMessageConsumer extends DefaultConsumer {
 		this.solutionName = solutionName;
 		
 		this.autoAck = (Boolean) config.getOrDefault(ConfigHandler.AUTO_ACK, true);
-		this.ackMultiple = (Boolean) config.getOrDefault(ConfigHandler.ACK_MULTIPLE, true);
-		this.nackMultiple = (Boolean) config.getOrDefault(ConfigHandler.NACK_MULTIPLE, true);
-		this.nackRequeue = (Boolean) config.getOrDefault(ConfigHandler.NACK_REQUEUE, true);
-		this.rejectRequeue = (Boolean) config.getOrDefault(ConfigHandler.REJECT_REQUEUE, true);
+		this.ackMultiple = (Boolean) config.getOrDefault(ConfigHandler.ACK_MULTIPLE, false);
+		this.nackMultiple = (Boolean) config.getOrDefault(ConfigHandler.NACK_MULTIPLE, false);
+		this.nackRequeue = (Boolean) config.getOrDefault(ConfigHandler.NACK_REQUEUE, false);
+		this.rejectRequeue = (Boolean) config.getOrDefault(ConfigHandler.REJECT_REQUEUE, false);
 	}
 	
 	@Override
