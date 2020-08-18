@@ -27,20 +27,32 @@ public class ScriptMethodMessageConsumer extends DefaultConsumer {
 	private Channel channel;
 	private FunctionDefinition handler;
 	private String solutionName;
+	private boolean autoAck;
+	private boolean ackMultiple;
+	private boolean nackMultiple;
+	private boolean nackRequeue;
+	private boolean rejectRequeue;
+	
 	private static JSONSerializerWrapper serializerWrapper = new JSONSerializerWrapper(false);
 	
-	public ScriptMethodMessageConsumer(Channel channel, HeadlessClientPool pool, String solutionName, FunctionDefinition handler) {
+	public ScriptMethodMessageConsumer(Channel channel, HeadlessClientPool pool, String solutionName, FunctionDefinition handler, HashMap<String, Object> config) {
 		super(channel);
 		this.pool = pool;
 		this.channel = channel;
 		this.handler = handler;
 		this.solutionName = solutionName;
+		
+		this.autoAck = (Boolean) config.getOrDefault(ConfigHandler.AUTO_ACK, true);
+		this.ackMultiple = (Boolean) config.getOrDefault(ConfigHandler.ACK_MULTIPLE, true);
+		this.nackMultiple = (Boolean) config.getOrDefault(ConfigHandler.NACK_MULTIPLE, true);
+		this.nackRequeue = (Boolean) config.getOrDefault(ConfigHandler.NACK_REQUEUE, true);
+		this.rejectRequeue = (Boolean) config.getOrDefault(ConfigHandler.REJECT_REQUEUE, true);
 	}
 	
 	@Override
 	public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-		
 		IHeadlessClient client = null;
+		
 		try {
 			client = pool.getClient(solutionName);
 		} catch (Exception e) {
@@ -49,31 +61,51 @@ public class ScriptMethodMessageConsumer extends DefaultConsumer {
 		
 		if (client != null) {
 			if (client.isValid()) {
-				byte[] content;
+				long deliveryTag = envelope.getDeliveryTag();
+				boolean mustReply = properties.getReplyTo() != null;
 				String contentType = "";
-				Object result;
-				Exception error = null;
 				
+				Exception error = null;
+				byte[] content;
+				Object result;
+
 				try {
 					result = client.getPluginAccess().executeMethod(handler.getContextName(), handler.getMethodName(), new Object[] { consumerTag, envelope, properties, body}, false); //TODO convert envelope and BasicProperties to something easier to use in JavaScript
+		            
+					if (!autoAck) {
+						if (result instanceof AMQP.Basic.Nack) {
+							channel.basicNack(deliveryTag, nackMultiple, nackRequeue);
+							result = null;
+							rejectRequeue = !nackRequeue;
+						} else {
+							channel.basicAck(deliveryTag, ackMultiple);
+						}
+					}
 				} catch (Exception e) {
 					log.error("consumer {}://{}/{} failed in handling message delivery", solutionName, handler.getContextName(), handler.getMethodName(), e);
 					result = null;
 					error = e;
+					
+					if (!autoAck) {
+						channel.basicReject(deliveryTag, rejectRequeue);
+						mustReply = !rejectRequeue;
+					}
 				}
 				
-				if (properties.getReplyTo() != null) {
+				if (mustReply) {
 					try {
-						if (result instanceof JSONObject || result instanceof JSONArray) {
-							content = result.toString().getBytes(StandardCharsets.UTF_8);
-							contentType = "application/json";
-						} else if (result instanceof byte[]) {
+						if (result instanceof byte[]) {
 							content = (byte[]) result;
 						} else {
-							content = serializerWrapper.toJSON(result).toString().getBytes(StandardCharsets.UTF_8);
 							contentType = "application/json";
-						}
 						
+							if (result instanceof JSONObject || result instanceof JSONArray) {
+								content = result.toString().getBytes(StandardCharsets.UTF_8);
+							} else {
+								content = serializerWrapper.toJSON(result).toString().getBytes(StandardCharsets.UTF_8);
+							}
+						}
+
 						Builder replyProps = new AMQP.BasicProperties
 	                            .Builder()
 	                            .correlationId(properties.getCorrelationId())

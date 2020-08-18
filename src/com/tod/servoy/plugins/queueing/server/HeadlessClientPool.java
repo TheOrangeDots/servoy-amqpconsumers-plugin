@@ -45,12 +45,7 @@ public class HeadlessClientPool {
 	
 	public HeadlessClientPool(IServerAccess access, Integer poolSize, POOL_EXHAUSTED_ACTIONS exhaustedAction) {
 		this.access = access;
-		if (poolSize == null || poolSize <= 1) {
-			this.poolSize = CLIENT_POOL_SIZE_DEFAULT;
-		} else {
-			this.poolSize = poolSize.intValue();
-		}
-		
+		this.poolSize = (poolSize == null || poolSize <= 1) ? CLIENT_POOL_SIZE_DEFAULT : poolSize.intValue();
 		this.exhaustedAction = exhaustedAction == null ? POOL_EXHAUSTED_ACTIONS.BLOCK : exhaustedAction;
 	}
 

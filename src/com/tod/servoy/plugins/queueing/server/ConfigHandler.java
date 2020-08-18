@@ -6,12 +6,16 @@ import java.net.URISyntaxException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,33 +41,43 @@ import com.servoy.j2db.util.Debug;
  * or
  * tod.queueing.connection.1.url
  * 
- * tod.queueing.channel.1.connection=1 //refers to the exchange defined by tod.queueing.exchange.1
+ * tod.queueing.channel.1.connection=1 //refers to the connection defined by tod.queueing.connection.1
+ * #qos/prefetch settings: https://www.rabbitmq.com/consumer-prefetch.html
+ * tod.queueing.channel.1.qos.global=15 // channel-level 
+ * tod.queueing.channel.1.qos=10 // consumer-level
  * 
  * tod.queueing.exchange.1.channel=1 //refers to the channel defined by tod.queueing.channel.1
- * tod.queueing.exchange.1.name=rmi
+ * tod.queueing.exchange.1.name=rpc
  * tod.queueing.exchange.1.type=direct
  * tod.queueing.exchange.1.durable=true
 
  * tod.queueing.queue.1.channel=1 //refers to the channel defined by tod.queueing.channel.1
- * tod.queueing.queue.1.name=pcd
+ * tod.queueing.queue.1.name=myQueueName
  * tod.queueing.queue.1.durable=true
  * tod.queueing.queue.1.exclusive=true
  * tod.queueing.queue.1.autodelete=true
  * 
  * tod.queueing.binding.1.queue=1 //refers to the queue defined by tod.queueing.queue.1
  * tod.queueing.binding.1.exchange=1 //refers to the exchange defined by tod.queueing.exchange.1
- * tod.queueing.binding.1.routingkey=pcd
+ * tod.queueing.binding.1.routingkey=myRoutingKey
  * 
- * tod.queueing.consumer.1.init=jnrMessageQueueHandler://scopes.jnrMessageQueueHandling.initRMIQueue
- * tod.queueing.consumer.1.handler=jnrMessageQueueHandler://scopes.jnrMessageQueueHandling.consumeRMI
+ * tod.queueing.consumer.1.handler=jnrMessageQueueHandler://scopes.amqpMessageQueueHandling.consumeRPC
  * tod.queueing.consumer.1.queue=1 //refers to the queue defined by tod.queueing.queue.1
- * tod.queueing.consumer.1.autoAck=true
- * tod.queueing.consumer.1.consumerTag=pcd
+ * tod.queueing.consumer.1.autoAck=false
+ * tod.queueing.consumer.1.ack.multiple=true
+ * tod.queueing.consumer.1.nack.multiple=true
+ * tod.queueing.consumer.1.nack.requeue=true
+ * tod.queueing.consumer.1.reject.requeue=true
+ * tod.queueing.consumer.1.consumerTag=someTagName
  * tod.queueing.consumer.1.noLocal=true
  * tod.queueing.consumer.1.exclusive=true
- * tod.queueing.consumer.1.prefetch=10
+ * tod.queueing.consumer.1.options.x-max-priority=10
  * 
- *
+ * Default connections/channel/...
+ * When defining a type (connection/channel/exchange/queue/binding/consumer), the sequential numbering ('.1.' part in example above) can be omitted
+ * This created a 'default' for the specific type
+ * 
+ * When omitting a reference to a relevant other type, like a queue definition referring to a channel, the default will be used.
  */
 public class ConfigHandler {
 	private final static String PROPERT_KEY_PREFIX = "tod.queueing.";
@@ -110,13 +124,20 @@ public class ConfigHandler {
 	private final static String AUTO_DELETE = "autodelete";
 	
 	private final static String CONSUMER_TAG = "consumertag";
-	private final static String AUTO_ACK = "autoack";
+	final static String AUTO_ACK = "autoAck";
+	final static String ACK_MULTIPLE = "ack.multiple";
+	final static String NACK_MULTIPLE = "nack.multiple";
+	final static String NACK_REQUEUE = "nack.requeue";
+	final static String REJECT_REQUEUE = "reject.requeue";
+	
 	private final static String NO_LOCAL = "nolocal";
-	private final static String PREFETCH = "prefetch";
+	private final static String QOS = "qos";
+	private final static String GLOBAL_QOS = "qos.global";
 	
 	private final static Logger log = LoggerFactory.getLogger(ConfigHandler.class);
 
-	private static HeadlessClientPool pool;
+	private static HeadlessClientPool pool = null;
+	private static IServerAccess serverAccess;
 	
 	private static HashMap<String, Object> globalConfig = new HashMap<String, Object>();
 	private static HashMap<String, HashMap<String, Object>> connections = new HashMap<String, HashMap<String, Object>>();
@@ -128,87 +149,89 @@ public class ConfigHandler {
 	
 	//TODO ability to customize initialization through callbacks
 	protected static void init(IServerAccess access) {
+		serverAccess = access;
 		
+		Pattern pattern = Pattern.compile(PROPERT_KEY_PREFIX + "(connection|channel|exchange|queue|binding|consumer)(?:\\.(\\d+))?\\.(.*)");
+		//m.group(1) > queue:(connection|channel|exchange|queue|binding|consumer)
+		//m.group(2) > 2: (\\d+)
+		//m.group(3) > vhost: (.*)
+
 		Properties props = access.getSettings();
-		Set<String> keys = props.stringPropertyNames();
-		Pattern pattern = Pattern.compile(PROPERT_KEY_PREFIX + "(connection|channel|exchange|queue|binding|consumer)(?:\\.(\\d+|default))?\\.(.*)");
-				
-	    HashMap<String, HashMap<String, Object>> configs;
+		Iterator<String> iterator = props.stringPropertyNames()
+				   .stream()
+				   .filter(x -> x.startsWith(PROPERT_KEY_PREFIX))
+				   .iterator();
+
+		HashMap<String, HashMap<String, Object>> configs;
 	    HashMap<String, Object> config;
-	    String key;
+	    String fullKey;
+		String key;
+		String value;
+		Matcher m;
+		String indexKey;
+		Object realValue;
 		
-		for (String fullKey : keys)
-		{
-		    if (!fullKey.startsWith(PROPERT_KEY_PREFIX)) {
-		    	continue;
-		    } 
-		    
-		    Matcher m = pattern.matcher(fullKey);
-		    if (m.find()) { //Key must be something like "tod.queueing.queue.2.vhost"
-		    	
-		    	configs = getDependancyConfigs(m.group(1));
-		    			    	
-		    	String indexKey = m.group(2) != null ? m.group(2) : DEFAULT;
-		    	config = configs.get(indexKey);
-		    	
-		    	if (config == null) {
-		    		config = new HashMap<String, Object>();
-		    		configs.put(indexKey, config);
-		    	}
-		    	
-		    	key = m.group(3);
-		    } else {
-		    	config = globalConfig;
-		    	key = fullKey.substring(PROPERT_KEY_PREFIX.length());
-		    }
+		while (iterator.hasNext()) {
+			fullKey = iterator.next();
 
-		    String value = props.getProperty(fullKey, "").trim();
-		    if (value.length() == 0) {
-	    		continue;
-	    	}
-		    
-		    Object realValue;
-		    
-		    if (value.equalsIgnoreCase("true")) {
-	    		realValue = true;
-	    	} else if (value.equalsIgnoreCase("false")) {
-	    		realValue = false;
-	    	} else if (value.matches("-?\\d+")) {
-	    		realValue = Integer.parseInt(value);
-	    	} else {
-	    		realValue = value; //Must be a String, right?
-	    	}
+			value = props.getProperty(fullKey, "").trim();
+			if (value.length() == 0) {
+				return;
+			}
 
-		    
-		    //TODO check if the key is supported for m.group(1)		    
-		    if (key.startsWith(OPTIONS + ".")) {
-		    	HashMap<String, Object> options = (HashMap<String, Object>) config.get(OPTIONS);
-		    	
-		    	if (options == null) {
-		    		options = new HashMap<String, Object>();
-		    		config.put(OPTIONS, options);
-		    	}
-		    	
-		    	options.put(key.substring(8), realValue);
-		    	
-		    } else {
-			   config.put(key, realValue);
-		    }
+			m = pattern.matcher(fullKey);
+			if (m.find()) { // Key must be something like "tod.queueing.queue.2.vhost"
+				configs = getDependancyConfigs(m.group(1));
+
+				indexKey = m.group(2) != null ? m.group(2) : DEFAULT;
+				config = configs.get(indexKey);
+
+				if (config == null) {
+					config = new HashMap<String, Object>();
+					configs.put(indexKey, config);
+				}
+
+				key = m.group(3);
+			} else { // any propertyKey that starts with PROPERT_KEY_PREFIX ('tod.queueing.'), but
+						// isn't followed by any of connection|channel|exchange|queue|binding|consumer.
+						// Used for HeadlessClient Pool settings for example
+				config = globalConfig; // CHECKME what does this look like for properties? And isn't this/shouldn't
+										// this be the same as DEFAULT?
+				key = fullKey.substring(PROPERT_KEY_PREFIX.length());
+			}
+
+			if (value.equalsIgnoreCase("true")) {
+				realValue = true;
+			} else if (value.equalsIgnoreCase("false")) {
+				realValue = false;
+			} else if (value.matches("-?\\d+")) {
+				realValue = Integer.parseInt(value);
+			} else {
+				realValue = value; // Must be a String, right?
+			}
+
+			// TODO check if the key is supported for m.group(1)
+			if (key.startsWith(OPTIONS + ".")) {
+				HashMap<String, Object> options = (HashMap<String, Object>) config.get(OPTIONS);
+
+				if (options == null) {
+					options = new HashMap<String, Object>();
+					config.put(OPTIONS, options);
+				}
+
+				options.put(key.substring(8), realValue);
+			} else {
+				config.put(key, realValue);
+			}
 		}
-		
-		//Init Headless Client Pool
-		Integer poolSize = (Integer) globalConfig.get(CLIENT_POOL_SIZE);
-		HeadlessClientPool.POOL_EXHAUSTED_ACTIONS exhaustedAction = HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.valueOf(((String)globalConfig.getOrDefault(EXHAUSTED_ACTION,  HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.BLOCK.toString())).toUpperCase());
-		
-		pool = new HeadlessClientPool(access, poolSize, exhaustedAction);
-		
+
 		//Start creating all AMQP entities
 		String[] amqpEntities = {CONNECTION, CHANNEL, EXCHANGE, QUEUE, BINDING, CONSUMER};
 		
 		//TODO if having no properties whatsoever for the plugin, do nothing? would mean it would also not do the defaults
 		//maybe try to connect to RMQ on localhost with default credentials, but if that fails, suppress the error and stop further initialization
 		
-		for(String entity : amqpEntities) {
+		for (String entity : amqpEntities) {
 			boolean created;
 			HashMap<String, HashMap<String, Object>> entityConfigs = getDependancyConfigs(entity);
 			
@@ -246,7 +269,7 @@ public class ConfigHandler {
 				if (!created) {
 					String configKey = entry.getKey();
 					
-					log.warn("Skipping configuration for {} {}", entity, configKey);
+					log.warn("Skipping configuration for {} '{}'", entity, configKey);
 					entityConfigs.remove(configKey);
 				}
 			}
@@ -294,7 +317,7 @@ public class ConfigHandler {
 		IHeadlessClient client = null;
 		
 		try {
-			client = pool.getClient(callback.getScheme());
+			client = getPool().getClient(callback.getScheme());
 		} catch (Exception e) {
 			log.error("Exception getting client from pool", e);
 		}
@@ -318,7 +341,7 @@ public class ConfigHandler {
 				log.error("Client borrowed from pool is invalid");
 			}
 			client.shutDown(true); //Effectively removing the client from the pool as to not let HC's hanging around that will/might never be used anymore
-		    pool.releaseClient(callback.getScheme(), client, false);
+		    getPool().releaseClient(callback.getScheme(), client, false);
 		} else {
 			log.error("Failure borrowing client from pool: client is null");
 		}
@@ -342,7 +365,21 @@ public class ConfigHandler {
 		
 		if (conn != null) {
 			try {
-				config.put(CHANNEL, conn.createChannel());
+				Channel channel = conn.createChannel();
+				
+				// https://rabbitmq.github.io/rabbitmq-java-client/api/current/com/rabbitmq/client/Channel.html#basicQos(int)
+				int globalPrefetchCount = (int) config.getOrDefault(GLOBAL_QOS, -1);
+				int prefetchCount = (int) config.getOrDefault(QOS, -1);
+
+				if (globalPrefetchCount > -1) {
+					channel.basicQos(globalPrefetchCount); // channel-wide prefetch count
+				}
+				
+				if (prefetchCount > -1) {
+					channel.basicQos(prefetchCount, false); // per consumer prefetch count
+				}
+				
+				config.put(CHANNEL, channel);
 				return true;
 			} catch (IOException e) {
 				log.error("Channel failure", e);
@@ -461,14 +498,14 @@ public class ConfigHandler {
 		}
 		
 		Channel chan = (Channel) queueConfig.get(CHANNEL);
-		ScriptMethodMessageConsumer consumer = new ScriptMethodMessageConsumer(chan, pool, handler.getScheme(), fd);
+		ScriptMethodMessageConsumer consumer = new ScriptMethodMessageConsumer(chan, pool, handler.getScheme(), fd, config);
 		
 		String consumerTag = (String) config.getOrDefault(CONSUMER_TAG, EMPTY);
 		boolean autoAck = (Boolean) config.getOrDefault(AUTO_ACK, true);
 		boolean noLocal = (Boolean) config.getOrDefault(NO_LOCAL, false);
 		boolean exclusive = (Boolean) config.getOrDefault(EXCLUSIVE, false);
-		HashMap<String, Object> options =  (HashMap<String, Object>) config.getOrDefault(OPTIONS, new HashMap<String, Object>());
-		
+		HashMap<String, Object> options = (HashMap<String, Object>) config.getOrDefault(OPTIONS, new HashMap<String, Object>());
+
 		try {
 			chan.basicConsume((String) queueConfig.get(QUEUE), autoAck, consumerTag, noLocal, exclusive, options, consumer);
 			return true;
@@ -520,5 +557,17 @@ public class ConfigHandler {
 		if (config.get(RPCTIME_OUT) != null) factory.setChannelRpcTimeout((int) config.get(RPCTIME_OUT));
 		
 		return factory;
-	}	
+	}
+	
+	private static HeadlessClientPool getPool() {
+		if (pool == null) {
+			//Init Headless Client Pool
+			Integer poolSize = (Integer) globalConfig.get(CLIENT_POOL_SIZE);
+			HeadlessClientPool.POOL_EXHAUSTED_ACTIONS exhaustedAction = HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.valueOf(((String)globalConfig.getOrDefault(EXHAUSTED_ACTION,  HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.BLOCK.toString())).toUpperCase());
+			
+			pool = new HeadlessClientPool(serverAccess, poolSize, exhaustedAction);
+		}
+		
+		return pool;
+	}
 }
