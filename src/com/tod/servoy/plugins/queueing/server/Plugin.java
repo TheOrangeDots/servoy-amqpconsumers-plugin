@@ -51,8 +51,13 @@ public class Plugin implements IServerPlugin {
 
 	@Override
 	public Properties getProperties() {
-		//TODO
-		return null;
+		Properties p = new Properties();
+		p.putAll(Map.of(
+				DISPLAY_NAME, "AMQP Listeners",
+				DISPLAY_ADMINPAGE_URL, "https://github.com/TheOrangeDots/servoy-amqplisteners-plugin"
+		));
+		
+		return p;
 	}
 
 	@Override
