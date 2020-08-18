@@ -153,11 +153,11 @@ TODO
 ### connection 
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| user | string |  |  |
-| password | string |   |  |
-| host | string |   |  |
-| port | int |   |  |
-| vhost  | string |   |  |
+| user | string |  | required |
+| password | string |  | required |
+| host | string | localhost |  |
+| port | int | 5672 |  |
+| vhost  | string |  |  |
 | connectiontimeout | intr |   |  |
 | handshaketimeout | intr |   |  |
 | shutdowntimeout | int |   |  |
@@ -175,8 +175,8 @@ TODO
 | ------------- | ------------- | ------------- | ------------- |
 | channel | int |  |  |
 | name | string |  |  |
-| durable | boolean |  |  |
-| autodelete | boolean |  |  |
+| durable | boolean | false |  |
+| autodelete | boolean | false |  |
 | options |  |  |  |
 
 ### queue
@@ -184,31 +184,33 @@ TODO
 | ------------- | ------------- | ------------- | ------------- |
 | channel | int |  |  |
 | name | string |  |  |
-| durable | boolean |  |  |
-| autodelete | boolean |  |  |
-| exclusive | boolean |  |  |
+| durable | boolean | false |  |
+| autodelete | boolean | false |  |
+| exclusive | boolean | false |  |
 | options |  |  |  |
 
 ### binding
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
-| queue | int |  | Queue and Exchange must be on the same Channel |
+| queue | int |  |  |
 | exchange | int |  |  |
-| routingkey | string |  |  |
+| routingkey | string |  | required |
+NOTES 
+* Queue and Exchange must be on the same Channel 
 
 ### consumer
 | property  | type | default | description |
 | ------------- | ------------- | ------------- | ------------- |
 | queue | int |  |  |
 | handler | string |  |  |
-| consumertag | string |  |  |
-| autoack | boolean | auto-generated |  |
+| consumertag | string |  | if not specified, the AMQP server will generate a random value |
+| autoack | boolean | true |  |
 | ack.multiple | boolean | false |  |
 | nack.multiple | boolean | false |  |
 | nack.requeue | boolean | false |  |
 | reject.requeue | boolean | false |  |
-| nolocal | boolean |  |  |
-| exclusive | boolean |  |  |
+| nolocal | boolean | false |  |
+| exclusive | boolean | false |  |
 
 ### plugin/global
 | property  | type | default | description |
