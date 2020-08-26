@@ -15,7 +15,7 @@ public class Plugin implements IServerPlugin {
 	private final int defaultMaxInitAttempts = 5*60;
 	private final int maxInitAttempts = Integer.parseInt(System.getProperty(ConfigHandler.PROPERT_KEY_PREFIX + "maxInitDelay", Integer.toString(defaultMaxInitAttempts)));
 	private int attemptCount = 0;
-	private final String name = "AMQP Listeners";
+	private final String name = "AMQP Consumers";
 	
 	@Override
 	public void load() throws PluginException {}
@@ -59,7 +59,7 @@ public class Plugin implements IServerPlugin {
 		
 		props.putAll(Map.of(
 				DISPLAY_NAME, name,
-				DISPLAY_ADMINPAGE_URL, "https://github.com/TheOrangeDots/servoy-amqplisteners-plugin"
+				DISPLAY_ADMINPAGE_URL, "https://github.com/TheOrangeDots/servoy-amqpconsumers-plugin"
 		));
 		
 		return props;

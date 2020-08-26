@@ -1,5 +1,5 @@
-# Servoy-AMQPListeners-Plugin
-The `AMQPListeners` plugin for [Servoy](http://servoy.com) allows a Servoy ApplicationServer instance to listen to AMQP Queues and when receiving a message will invoke the configured method in a Servoy Solution, utilizing a pool of Headless Clients
+# Servoy-AMQPConsumers-Plugin
+The `AMQPConsumers` plugin for [Servoy](http://servoy.com) allows a Servoy ApplicationServer instance to consume messages from AMQP Queues and when receiving a message will invoke the configured method in a Servoy Solution, utilizing a pool of Headless Clients
 
 # Use case
 This plugin was developed to be able to process queued messages in Servoy, without having to rely on a batchprocessor or another type of client running
@@ -11,7 +11,7 @@ It has built-in support for RPC-style messaging using AMQP's replyTo and correla
 - RabbitMQ: only tested with RabbitMQ, but should work with anything that supports AMQP
 
 # Installation
-Download the `com.tod.servoy.plugins.amqp.consumers-x.x.x.jar` file from the desired [release](https://github.com/TheOrangeDots/servoy-amqplisteners-plugin/releases) and place the downloaded file in the /application_server/plugins folder of [Servoy](http://servoy.com)
+Download the `com.tod.servoy.plugins.amqp.consumers-x.x.x.jar` file from the desired [release](https://github.com/TheOrangeDots/servoy-amqpconsumers-plugin/releases) and place the downloaded file in the /application_server/plugins folder of [Servoy](http://servoy.com)
 
 # Usage
 Using the plugin in a combination of configuring the AMQP-side of things through servoy.properties and implementing a callback function in one (or more) solutions in Servoy.
@@ -219,11 +219,11 @@ NOTES
 | exhaustedaction | grow/block/fail | block |  |
 
 # Feature Requests & Bugs
-Found a bug or would like to see a new feature implemented? Raise an issue in the [Issue Tracker](https://github.com/TheOrangeDots/Servoy-AMQPListeners-Plugin/issues)
+Found a bug or would like to see a new feature implemented? Raise an issue in the [Issue Tracker](https://github.com/TheOrangeDots/Servoy-AMQPConsumers-Plugin/issues)
 
 # Contributing
 Eager to fix a bug or introduce a new feature? Clone the repository and issue a pull request
 
 # License
-The Servoy AMQPListeners plugin is licensed under MIT License
+The Servoy AMQPConsumers plugin is licensed under MIT License
 
