@@ -76,7 +76,7 @@ import com.servoy.j2db.util.Debug;
  * When omitting a reference to a relevant other type, like a queue definition referring to a channel, the default will be used.
  */
 public class ConfigHandler {
-	private final static String PROPERT_KEY_PREFIX = "tod.queueing.";
+	final static String PROPERT_KEY_PREFIX = "tod.queueing.";
 	
 	//Headless CLient Pool settings
 	private final static String CLIENT_POOL_SIZE = "clientpoolsize";
