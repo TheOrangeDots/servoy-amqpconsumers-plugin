@@ -65,9 +65,9 @@ tod.queueing.queue.name=rpc.mySolution
 
 Lastly, the plugin needs to be instructed which method to call in which Servoy solution to process messages:
 ```
-tod.queueing.consumer.autoAck=true
+tod.queueing.consumer.autoack=true
 tod.queueing.consumer.handler=mySolution\://scopes.amqpMessageHandling.consumeRPC
-tod.queueing.consumer.noLocal=true
+tod.queueing.consumer.nolocal=true
 ```
 
 Note: all properties for this plugin are prefixed with `tod.queueing.`.
@@ -130,7 +130,7 @@ tod.queueing.exchange.99.name=rpc
 ```
 
 ## Acking & Nacking
-By default messages received by the plugin are automatically acknowledged. This can be changed by setting the `autoAck` property on the consumer to false.
+By default messages received by the plugin are automatically acknowledged. This can be changed by setting the `autoack` property on the consumer to false.
 
 In that case, the plugin will `ack` the message after the callback has succesfully returned. If an exception is thrown however within the callback, the message will be rejected. To `nack` a message, return `Packages.com.rabbitmq.client.AMQP.Basic.Nack` from the callback.
 

@@ -59,13 +59,13 @@ import com.servoy.j2db.util.Debug;
  * 
  * tod.queueing.consumer.1.handler=jnrMessageQueueHandler://scopes.amqpMessageQueueHandling.consumeRPC
  * tod.queueing.consumer.1.queue=1 //refers to the queue defined by tod.queueing.queue.1
- * tod.queueing.consumer.1.autoAck=false
+ * tod.queueing.consumer.1.autoack=false
  * tod.queueing.consumer.1.ack.multiple=true
  * tod.queueing.consumer.1.nack.multiple=true
  * tod.queueing.consumer.1.nack.requeue=true
  * tod.queueing.consumer.1.reject.requeue=true
- * tod.queueing.consumer.1.consumerTag=someTagName
- * tod.queueing.consumer.1.noLocal=true
+ * tod.queueing.consumer.1.consumertag=someTagName
+ * tod.queueing.consumer.1.nolocal=true
  * tod.queueing.consumer.1.exclusive=true
  * tod.queueing.consumer.1.options.x-max-priority=10
  * 
