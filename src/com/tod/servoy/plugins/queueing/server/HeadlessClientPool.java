@@ -67,12 +67,10 @@ public class HeadlessClientPool {
 			if (exhaustedAction == POOL_EXHAUSTED_ACTIONS.FAIL) {
 				config.setBlockWhenExhausted(false);
 				log.debug("Client pool, exchaustedAction={}", POOL_EXHAUSTED_ACTIONS.FAIL.toString());
-			}
-			else if (exhaustedAction == POOL_EXHAUSTED_ACTIONS.GROW) {
+			} else if (exhaustedAction == POOL_EXHAUSTED_ACTIONS.GROW) {
 				config.setMaxTotal(-1);
 				log.debug("Client pool, exchaustedAction={}", POOL_EXHAUSTED_ACTIONS.GROW.toString());
-			}
-			else { // stick to defaults
+			} else { // stick to defaults
 				log.debug("Client pool, exchaustedAction={}", POOL_EXHAUSTED_ACTIONS.BLOCK.toString());
 			}
 		}
@@ -85,25 +83,32 @@ public class HeadlessClientPool {
 			public IHeadlessClient create(String key) throws Exception
 			{
 				log.debug("creating new session client for solution '{}'", key);
+
 				String solutionName = key;
 				String[] solOpenArgs = SOLUTION_OPEN_METHOD_ARGS;
 
 				String[] arr = solutionName.split(":");
+
 				if (arr.length == 2)
 				{
 					solutionName = arr[0];
 					solOpenArgs = Utils.arrayJoin(SOLUTION_OPEN_METHOD_ARGS, new String[] { "nodebug" });
 				}
+
 				IHeadlessClient client =  HeadlessClientFactory.createHeadlessClient(solutionName, solOpenArgs);
+
 				if (!client.isValid()) {
 					throw new IllegalStateException("Created Headless Client is invalid");
 				} else if (client.getPluginAccess().getSolutionName() == null) {
 					String message = "Created Headless Client doesn't have the specified solution %s loaded";
+
 					if (client.getPluginAccess().isInDeveloper()) { //TODO if in Developer and the solution is null AND nodebug is not set, retry with nodebug and if successfull log a warning
 						message += ". Is the solution (part of) the Active Solution?";
 					}
+
 					throw new IllegalStateException(String.format(message, key));
 				}
+
 				return client;
 			}
 
@@ -120,6 +125,7 @@ public class HeadlessClientPool {
 				if (client.getPluginAccess().isInDeveloper())
 				{
 					String solutionName = key;
+
 					if (solutionName.contains(":")) {
 						solutionName = solutionName.split(":")[0];
 					}
@@ -139,6 +145,7 @@ public class HeadlessClientPool {
 				}
 				boolean valid = client.isValid();
 				log.debug("Validated session client for solution '{}', valid = {}", key, valid);
+
 				return valid;
 			}
 
@@ -146,17 +153,17 @@ public class HeadlessClientPool {
 			public void destroyObject(String key, PooledObject<IHeadlessClient> pooledObject) throws Exception
 			{
 				log.debug("Destroying session client for solution '{}'", key);
+
 				IHeadlessClient client = pooledObject.getObject();
-				try
-				{
+
+				try {
 					client.shutDown(true);
-				}
-				catch (Exception e)
-				{
+				} catch (Exception e) {
 					Debug.error(e);
 				}
 			}
 		});
+
 		clientPool.setConfig(config);
 		clientPool.setTestOnBorrow(true);
 		
@@ -165,12 +172,9 @@ public class HeadlessClientPool {
 
 	public IHeadlessClient getClient(String solutionName) throws Exception
 	{
-		try
-		{
+		try {
 			return getClientPool().borrowObject(solutionName);
-		}
-		catch (NoSuchElementException e)
-		{
+		} catch (NoSuchElementException e) {
 			// no more licenses
 			throw new NoClientsException();
 		}
@@ -186,47 +190,35 @@ public class HeadlessClientPool {
 				public void run()
 				{
 					boolean solutionReopened = false;
-					try
-					{
+					try {
 						if (client.isValid()) {
 							client.closeSolution(true);
 							String[] arr = poolKey.split(":");
 							client.loadSolution(arr.length == 2 ? arr[0] : poolKey); // avoid the ":nodebug" part from the pool key...
 							solutionReopened = true;
 						}
-					}
-					catch (Exception ex)
-					{
+					} catch (Exception ex) {
 						log.error("cannot reopen solution '{}'", poolKey, ex);
 						client.shutDown(true);
 					}
-					finally
-					{
-						try
-						{
+					finally {
+						try {
 							if (solutionReopened) {
 								getClientPool().returnObject(poolKey, client);
 							} else {
 								getClientPool().invalidateObject(poolKey, client);
 							}
-						}
-						catch (Exception ex)
-						{
+						} catch (Exception ex) {
 							log.error("Failure releasing client back to pool", ex);
 						}
 					}
 				}
 			});
-		}
-		else
-		{
+		} else {
 			// This is potentially dangerous, only reuse clients with loaded solution if you are very sure the client did not keep state!
-			try
-			{
+			try {
 				getClientPool().returnObject(poolKey, client);
-			}
-			catch (Exception ex)
-			{
+			} catch (Exception ex) {
 				log.error("Exception returning borrowed Headless CLient to pool", ex);
 			}
 		}

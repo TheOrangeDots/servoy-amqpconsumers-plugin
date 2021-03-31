@@ -129,12 +129,12 @@ public class ConfigHandler {
 	private final static String NO_LOCAL = "nolocal";
 	private final static String QOS = "qos";
 	private final static String GLOBAL_QOS = "qos.global";
-	
+
 	private final static Logger log = LoggerFactory.getLogger(ConfigHandler.class);
 
 	private static HeadlessClientPool pool = null;
 	private static IServerAccess serverAccess;
-	
+
 	private static HashMap<String, Object> globalConfig = new HashMap<String, Object>();
 	private static HashMap<String, HashMap<String, Object>> connections = new HashMap<String, HashMap<String, Object>>();
 	private static HashMap<String, HashMap<String, Object>> channels = new HashMap<String, HashMap<String, Object>>();
@@ -142,11 +142,11 @@ public class ConfigHandler {
 	private static HashMap<String, HashMap<String, Object>> bindings = new HashMap<String, HashMap<String, Object>>();
 	private static HashMap<String, HashMap<String, Object>> queues = new HashMap<String, HashMap<String, Object>>();
 	private static HashMap<String, HashMap<String, Object>> consumers = new HashMap<String, HashMap<String, Object>>();
-	
+
 	//TODO ability to customize initialization through callbacks
 	protected static void init(IServerAccess access) {
 		serverAccess = access;
-		
+
 		Pattern pattern = Pattern.compile(PROPERT_KEY_PREFIX + "(connection|channel|exchange|queue|binding|consumer)(?:\\.(\\d+))?\\.(.*)");
 		//m.group(1) > queue:(connection|channel|exchange|queue|binding|consumer)
 		//m.group(2) > 2: (\\d+)
@@ -154,9 +154,9 @@ public class ConfigHandler {
 
 		Properties props = access.getSettings();
 		Iterator<String> iterator = props.stringPropertyNames()
-				   .stream()
-				   .filter(x -> x.startsWith(PROPERT_KEY_PREFIX))
-				   .iterator();
+			.stream()
+			.filter(x -> x.startsWith(PROPERT_KEY_PREFIX))
+			.iterator();
 
 		HashMap<String, HashMap<String, Object>> configs;
 	    HashMap<String, Object> config;
@@ -166,7 +166,7 @@ public class ConfigHandler {
 		Matcher m;
 		String indexKey;
 		Object realValue;
-		
+
 		while (iterator.hasNext()) {
 			fullKey = iterator.next();
 
@@ -223,19 +223,19 @@ public class ConfigHandler {
 
 		//Start creating all AMQP entities
 		String[] amqpEntities = {CONNECTION, CHANNEL, EXCHANGE, QUEUE, BINDING, CONSUMER};
-		
+
 		//TODO if having no properties whatsoever for the plugin, do nothing? would mean it would also not do the defaults
 		//maybe try to connect to RMQ on localhost with default credentials, but if that fails, suppress the error and stop further initialization
-		
+
 		for (String entity : amqpEntities) {
 			boolean created;
 			HashMap<String, HashMap<String, Object>> entityConfigs = getDependancyConfigs(entity);
-			
+
 			//TODO make sure not to start a default connection and channel if theres no relevant config whatsoever
 			if (entityConfigs.isEmpty()) { //CHECKME: only do this for amqp entities that have a default?
 				entityConfigs.put(DEFAULT, new HashMap<String, Object>());
 			}
-			
+
 			//TODO remove/close stuff if not used? For example, if there are no consumers, close the channel?
 			for (Entry<String, HashMap<String, Object>> entry : entityConfigs.entrySet()) {
 				config = entry.getValue();
@@ -261,7 +261,7 @@ public class ConfigHandler {
 						created = createConsumer(config);
 						break;
 				}
-				
+
 				if (!created) {
 					String configKey = entry.getKey();
 					
@@ -271,12 +271,12 @@ public class ConfigHandler {
 			}
 		}
 	}
-	
+
 	private static Object applyDependancy(HashMap<String, Object> config, String type) {
 		HashMap<String, HashMap<String, Object>> dependancies = getDependancyConfigs(type);
-		
+
 		String dependandyId = (String) config.getOrDefault(type, DEFAULT);
-		
+
 		if (dependancies.containsKey(dependandyId)) {
 			Object dependancy = dependancies.get(dependandyId).get(type);
 			config.put(type, dependancy);
@@ -284,7 +284,7 @@ public class ConfigHandler {
 		}
 		return null;
 	}
-	
+
 	private static HashMap<String, HashMap<String, Object>> getDependancyConfigs(String type) {
 		switch (type) {
 			case CONNECTION:
@@ -302,12 +302,12 @@ public class ConfigHandler {
 			default:
 				Debug.warn("what's happening here?");
 		}
-		
+
 		return null;
 	}
-	
+
 	private static Pattern hostSplitter = Pattern.compile("(.*)\\.([A-Za-z]+\\w*)$");
-	
+
 	private static FunctionDefinition getFunctionDefinition(URI callback) {
 		FunctionDefinition fd = null;
 		IHeadlessClient client = null;
@@ -355,14 +355,14 @@ public class ConfigHandler {
 		}
 		return false;
 	}
-	
+
 	private static boolean createChannel(HashMap<String, Object> config) {
 		Connection conn = (Connection) applyDependancy(config, CONNECTION);
-		
+
 		if (conn != null) {
 			try {
 				Channel channel = conn.createChannel();
-				
+
 				// https://rabbitmq.github.io/rabbitmq-java-client/api/current/com/rabbitmq/client/Channel.html#basicQos(int)
 				int globalPrefetchCount = (int) config.getOrDefault(GLOBAL_QOS, -1);
 				int prefetchCount = (int) config.getOrDefault(QOS, -1);
@@ -370,11 +370,11 @@ public class ConfigHandler {
 				if (globalPrefetchCount > -1) {
 					channel.basicQos(globalPrefetchCount); // channel-wide prefetch count
 				}
-				
+
 				if (prefetchCount > -1) {
 					channel.basicQos(prefetchCount, false); // per consumer prefetch count
 				}
-				
+
 				config.put(CHANNEL, channel);
 				return true;
 			} catch (IOException e) {
@@ -389,7 +389,7 @@ public class ConfigHandler {
 	private static boolean createExchange(HashMap<String, Object> config) {
 		Channel chan = (Channel) applyDependancy(config, CHANNEL);
 		String name = (String) config.get(NAME);
-		
+
 		if (name == null) {
 			log.warn("missing exchange name");
 		} else if (chan == null) {
@@ -397,11 +397,11 @@ public class ConfigHandler {
 		} else {
 			try {
 				BuiltinExchangeType type = BuiltinExchangeType.valueOf(((String) config.getOrDefault(TYPE, BuiltinExchangeType.DIRECT.getType())).toUpperCase());
-				
+
 				Boolean durable = (Boolean) config.getOrDefault(DURABLE, false);
 				Boolean autoDelete = (Boolean) config.getOrDefault(AUTO_DELETE, false);
 				HashMap<String, Object> options =  (HashMap<String, Object>) config.getOrDefault(OPTIONS, new HashMap<String, Object>());
-				
+
 				config.put(EXCHANGE, chan.exchangeDeclare(name, type, durable, autoDelete, options)); //TODO support internal
 				return true;
 			} catch (IOException e) {
@@ -410,7 +410,7 @@ public class ConfigHandler {
 		}
 		return false;
 	}
-	
+
 	private static boolean createQueue(HashMap<String, Object> config) {
 		Channel chan = (Channel) applyDependancy(config, CHANNEL);
 		String name = (String) config.get(NAME);
@@ -433,7 +433,7 @@ public class ConfigHandler {
 		}
 		return false;
 	}
-	
+
 	private static boolean createBinding(HashMap<String, Object> config) {
 		HashMap<String, Object> queueConfig = queues.get(config.getOrDefault(QUEUE, DEFAULT));
 		HashMap<String, Object> exchangeConfig = exchanges.get(config.getOrDefault(EXCHANGE, DEFAULT));
@@ -467,19 +467,19 @@ public class ConfigHandler {
 		}
 		return false;
 	}
-	
+
 	private static boolean createConsumer(HashMap<String, Object> config) {
 		HashMap<String, Object> queueConfig = queues.get(config.getOrDefault(QUEUE, DEFAULT));
-		
+
 		if (queueConfig == null) {
 			log.warn("Queue not found for Consumer");
 			return false;
 		}
-		
+
 		String handlerValue = (String) config.get(HANDLER);
 		URI handler;
 		FunctionDefinition fd;
-		
+
 		try {
 			handler = new URI(handlerValue);
 		} catch (URISyntaxException e1) {
@@ -492,10 +492,10 @@ public class ConfigHandler {
 			log.warn("Provided handler value {} does not resolve to a method", handlerValue);
 			return false;
 		}
-		
+
 		Channel chan = (Channel) queueConfig.get(CHANNEL);
 		ScriptMethodMessageConsumer consumer = new ScriptMethodMessageConsumer(chan, pool, handler.getScheme(), fd, config);
-		
+
 		String consumerTag = (String) config.getOrDefault(CONSUMER_TAG, EMPTY);
 		boolean autoAck = (Boolean) config.getOrDefault(AUTO_ACK, true);
 		boolean noLocal = (Boolean) config.getOrDefault(NO_LOCAL, false);
@@ -510,7 +510,7 @@ public class ConfigHandler {
 		}
 		return false;
 	}
-		
+
 	private static ConnectionFactory getConnectionFactory(HashMap<String, Object> config) {
 		//CHECKME instead of building an url string,not better to use settings on the factory? That would also take care of the defaults which are now hardcoded in the string concatenation
 		//TODO support url property
@@ -560,10 +560,10 @@ public class ConfigHandler {
 			//Init Headless Client Pool
 			Integer poolSize = (Integer) globalConfig.get(CLIENT_POOL_SIZE);
 			HeadlessClientPool.POOL_EXHAUSTED_ACTIONS exhaustedAction = HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.valueOf(((String)globalConfig.getOrDefault(EXHAUSTED_ACTION,  HeadlessClientPool.POOL_EXHAUSTED_ACTIONS.BLOCK.toString())).toUpperCase());
-			
+
 			pool = new HeadlessClientPool(serverAccess, poolSize, exhaustedAction);
 		}
-		
+
 		return pool;
 	}
 }
